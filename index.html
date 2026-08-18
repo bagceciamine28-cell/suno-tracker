@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suno Follow Compare</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f0f12;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1000px, 92%);
+      margin: 40px auto;
+    }
+
+    h1 {
+      font-size: 38px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #19191f;
+      border: 1px solid #292932;
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      border-radius: 12px;
+      border: 1px solid #33333d;
+      background: #101014;
+      color: white;
+      font-size: 16px;
+      outline: none;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 14px 22px;
+      border: 0;
+      border-radius: 12px;
+      background: white;
+      color: black;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: .85;
+    }
+
+    #status {
+      margin-top: 15px;
+      color: #bbb;
+      white-space: pre-wrap;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stat {
+      background: #101014;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .number {
+      font-size: 30px;
+      font-weight: bold;
+    }
+
+    .label {
+      color: #999;
+      margin-top: 5px;
+    }
+
+    .lists {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .list {
+      background: #101014;
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .list h3 {
+      margin-top: 0;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    li {
+      padding: 9px 0;
+      border-bottom: 1px solid #25252c;
+    }
+
+    .warning {
+      color: #ffb84d;
+    }
+
+    .success {
+      color: #69e69a;
+    }
+
+    @media (max-width: 700px) {
+      .stats,
+      .lists {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>🎵 Suno Follow Compare</h1>
+  <div class="subtitle">
+    API'siz Suno takipçi / takip edilen karşılaştırıcısı
+  </div>
+
+  <div class="card">
+
+    <input
+      id="profile"
+      type="text"
+      placeholder="https://suno.com/@kullanici"
+      value="https://suno.com/@leejongsuk"
+    >
+
+    <button onclick="analyze()">
+      🔍 Profili kontrol et
+    </button>
+
+    <div id="status"></div>
+
+  </div>
+
+  <div id="results" style="display:none;">
+
+    <div class="card">
+
+      <h2>📊 Sonuçlar</h2>
+
+      <div class="stats">
+
+        <div class="stat">
+          <div class="number" id="followers">0</div>
+          <div class="label">Takipçi</div>
+        </div>
+
+        <div class="stat">
+          <div class="number" id="following">0</div>
+          <div class="label">Takip edilen</div>
+        </div>
+
+        <div class="stat">
+          <div class="number" id="mutual">0</div>
+          <div class="label">Karşılıklı</div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="lists">
+
+      <div class="list">
+        <h3>❌ Seni takip etmeyenler</h3>
+        <ul id="notFollowingBack"></ul>
+      </div>
+
+      <div class="list">
+        <h3>💚 Senin takip etmediklerin</h3>
+        <ul id="notFollowing"></ul>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+function normalizeUsername(value) {
+
+  value = value.trim();
+
+  if (value.includes("suno.com/@")) {
+    value = value.split("suno.com/@")[1];
+  }
+
+  value = value.split(/[?#/]/)[0];
+
+  return value.replace(/^@/, "").trim();
+
+}
+
+
+async function analyze() {
+
+  const input = document.getElementById("profile");
+  const status = document.getElementById("status");
+
+  const username = normalizeUsername(input.value);
+
+  if (!username) {
+    status.textContent = "⚠️ Geçerli bir Suno kullanıcı adı gir.";
+    return;
+  }
+
+  status.className = "";
+  status.textContent =
+    "⏳ Profil kontrol ediliyor...\n" +
+    "API kullanılmadan herkese açık veriler deneniyor.";
+
+  document.getElementById("results").style.display = "none";
+
+  const profileUrl =
+    "https://suno.com/@" + encodeURIComponent(username);
+
+  try {
+
+    /*
+      ÖNEMLİ:
+
+      GitHub Pages'ten başka bir sitenin HTML'ini
+      fetch() ile okumak CORS nedeniyle engellenebilir.
+
+      Bu yüzden burada önce doğrudan deniyoruz.
+    */
+
+    const response = await fetch(profileUrl, {
+      method: "GET",
+      mode: "cors",
+      credentials: "omit"
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        "HTTP " + response.status
+      );
+    }
+
+    const html = await response.text();
+
+    console.log("Suno HTML:", html);
+
+    /*
+      Şimdilik sadece sayfanın erişilebilir olduğunu
+      test ediyoruz.
+
+      Takipçi listeleri HTML içinde bulunuyorsa
+      sonraki aşamada parser ekleyebiliriz.
+    */
+
+    status.innerHTML =
+      '<span class="success">' +
+      "✅ Suno profili tarayıcıdan erişilebilir!" +
+      "</span>\n\n" +
+      "HTML uzunluğu: " + html.length + "\n\n" +
+      "Şimdi takipçi/takip edilen verisinin HTML içinde " +
+      "bulunup bulunmadığını inceleyebiliriz.";
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    status.innerHTML =
+      '<span class="warning">' +
+      "⚠️ Suno sayfası tarayıcıdan okunamadı." +
+      "</span>\n\n" +
+
+      "Hata: " + error.message + "\n\n" +
+
+      "Bu büyük ihtimalle CORS veya Suno'nun " +
+      "sayfayı istemci dışından okutmasını engellemesiyle ilgili.\n\n" +
+
+      "Bu durumda API kullanmadan başka bir yöntem " +
+      "deneyeceğiz; giriş şifresi istemeyeceğiz.";
+
+  }
+
+}
+
+</script>
+
+</body>
+</html>
